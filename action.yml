@@ -1,0 +1,22 @@
+name: 'action-yaml-update'
+description: 'Action to automate updating yaml files. Eg Helm Values and Kustomize configs'
+author: 'group:default/dai'
+
+inputs:
+  # add your inputs here
+
+outputs:
+  # add your outputs here
+
+runs:
+  using: 'composite'
+  steps:
+    - name: run action
+      shell: bash
+      run: |
+        echo "running action-yaml-update"
+        # add your action logic here
+
+branding:
+  icon: 'zap'
+  color: 'blue'
