@@ -179,24 +179,72 @@ class TestCommentPreservation:
 class TestLoadDump:
     def test_load_and_dump_roundtrip(self, tmp_path):
         src = FIXTURES_DIR / "helm_values.yaml"
-        data = load_yaml(src)
+        data, yaml_instance, _ = load_yaml(src)
         dst = tmp_path / "output.yaml"
-        dump_yaml(data, dst)
-        reloaded = load_yaml(dst)
+        dump_yaml(data, dst, yaml_instance)
+        reloaded, _, _ = load_yaml(dst)
         assert reloaded["webapp"]["image"]["tag"] == "v1.0.0"
+
+    def test_indentation_preserved_4space(self, tmp_path):
+        # Test that 4-space indented lists stay 4-space indented
+        content = """\
+app:
+    ports:
+        - name: http
+          port: 8080
+        - name: https
+          port: 443
+    image:
+        repository: myapp
+        tag: v1.0.0
+"""
+        test_file = tmp_path / "test.yaml"
+        test_file.write_text(content)
+        data, yaml_instance, _ = load_yaml(test_file)
+        data["app"]["image"]["tag"] = "v2.0.0"
+        dump_yaml(data, dst := tmp_path / "output.yaml", yaml_instance)
+        result = dst.read_text()
+        # Check that 4-space indentation is preserved
+        assert "    ports:" in result
+        assert "        - name: http" in result
+
+    def test_indentation_preserved_2space(self, tmp_path):
+        # Test that 2-space indented lists stay 2-space indented
+        content = """\
+app:
+  ports:
+    - name: http
+      port: 8080
+  image:
+    repository: myapp
+    tag: v1.0.0
+"""
+        test_file = tmp_path / "test.yaml"
+        test_file.write_text(content)
+        data, yaml_instance, _ = load_yaml(test_file)
+        data["app"]["image"]["tag"] = "v2.0.0"
+        dump_yaml(data, dst := tmp_path / "output.yaml", yaml_instance)
+        result = dst.read_text()
+        # Check that 2-space indentation is preserved
+        assert "  ports:" in result
+        assert "    - name: http" in result
 
 
 class TestDiffYaml:
-    def test_diff_shows_changes(self):
+    def test_diff_shows_changes(self, tmp_path):
         content = "app:\n  version: v1.0.0\n"
-        data = _load_str(content)
+        test_file = tmp_path / "test.yaml"
+        test_file.write_text(content)
+        data, yaml_instance, original = load_yaml(test_file)
         data["app"]["version"] = "v2.0.0"
-        result = diff_yaml(Path("test.yaml"), content, data)
+        result = diff_yaml(test_file, original, data, yaml_instance)
         assert "-  version: v1.0.0" in result
         assert "+  version: v2.0.0" in result
 
-    def test_diff_empty_when_no_changes(self):
+    def test_diff_empty_when_no_changes(self, tmp_path):
         content = "app:\n  version: v1.0.0\n"
-        data = _load_str(content)
-        result = diff_yaml(Path("test.yaml"), content, data)
+        test_file = tmp_path / "test.yaml"
+        test_file.write_text(content)
+        data, yaml_instance, original = load_yaml(test_file)
+        result = diff_yaml(test_file, original, data, yaml_instance)
         assert result == ""
