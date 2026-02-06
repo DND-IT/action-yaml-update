@@ -1,4 +1,4 @@
-name: test action
+name: test
 
 on:
   push:
@@ -8,12 +8,86 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    name: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - name: install dependencies
+        run: uv sync --dev
+
+      - name: ruff check
+        run: uv run ruff check src/ tests/
+
+      - name: ruff format
+        run: uv run ruff format --check src/ tests/
+
   test:
     runs-on: ubuntu-latest
-    name: test action-yaml-update
+    name: test
     steps:
-      - name: checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: test action
+      - uses: astral-sh/setup-uv@v5
+
+      - name: install dependencies
+        run: uv sync --dev
+
+      - name: run tests
+        run: uv run pytest --cov --cov-report=term-missing
+
+  build:
+    runs-on: ubuntu-latest
+    name: build
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: set up docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: build docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: action-yaml-update:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  integration:
+    runs-on: ubuntu-latest
+    name: integration
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: create test yaml
+        run: |
+          cat > ${{ github.workspace }}/test-values.yaml << 'EOF'
+          webapp:
+            image:
+              repository: ghcr.io/myorg/webapp
+              tag: v1.0.0
+          EOF
+
+      - name: test action (dry run, key mode)
         uses: ./
+        with:
+          files: test-values.yaml
+          mode: key
+          keys: webapp.image.tag
+          values: v2.0.0
+          dry_run: 'true'
+
+      - name: test action (dry run, image mode)
+        uses: ./
+        with:
+          files: test-values.yaml
+          mode: image
+          image_name: webapp
+          image_tag: v3.0.0
+          dry_run: 'true'

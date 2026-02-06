@@ -1,22 +1,97 @@
 name: 'action-yaml-update'
-description: 'Action to automate updating yaml files. Eg Helm Values and Kustomize configs'
+description: 'Action to automate updating YAML files with format preservation. Supports Helm values and Kustomize configs.'
 author: 'group:default/dai'
 
 inputs:
-  # add your inputs here
+  files:
+    description: 'Newline-separated YAML file paths to update'
+    required: true
+  mode:
+    description: 'Update mode: key (explicit paths) or image (search by image name)'
+    required: false
+    default: 'key'
+  keys:
+    description: 'Newline-separated dot-notation key paths (mode=key)'
+    required: false
+  values:
+    description: 'Newline-separated values corresponding to keys (mode=key)'
+    required: false
+  image_name:
+    description: 'Image name suffix to search for (mode=image)'
+    required: false
+  image_tag:
+    description: 'New tag value (mode=image)'
+    required: false
+  create_pr:
+    description: 'Create a PR instead of direct commit'
+    required: false
+    default: 'true'
+  target_branch:
+    description: 'Base branch for PR or direct commit target'
+    required: false
+  pr_branch:
+    description: 'Branch name for PR (auto-generated if empty)'
+    required: false
+  pr_title:
+    description: 'Pull request title'
+    required: false
+    default: 'chore: update YAML values'
+  pr_body:
+    description: 'Pull request body (auto-generated if empty)'
+    required: false
+  pr_labels:
+    description: 'Comma-separated labels to add to the PR'
+    required: false
+  pr_reviewers:
+    description: 'Comma-separated reviewer usernames'
+    required: false
+  commit_message:
+    description: 'Commit message'
+    required: false
+    default: 'chore: update YAML values'
+  token:
+    description: 'GitHub token for git push and API calls'
+    required: false
+    default: ${{ github.token }}
+  auto_merge:
+    description: 'Enable auto-merge on the PR'
+    required: false
+    default: 'false'
+  merge_method:
+    description: 'Merge method: MERGE, SQUASH, or REBASE'
+    required: false
+    default: 'SQUASH'
+  dry_run:
+    description: 'Preview changes without modifying anything'
+    required: false
+    default: 'false'
+  git_user_name:
+    description: 'Git committer name'
+    required: false
+    default: 'github-actions[bot]'
+  git_user_email:
+    description: 'Git committer email'
+    required: false
+    default: '41898282+github-actions[bot]@users.noreply.github.com'
 
 outputs:
-  # add your outputs here
+  changed:
+    description: 'true/false whether files were modified'
+  changed_files:
+    description: 'Newline-separated list of modified files'
+  pr_number:
+    description: 'PR number (empty if no PR created)'
+  pr_url:
+    description: 'PR URL (empty if no PR created)'
+  commit_sha:
+    description: 'SHA of the created commit'
+  diff:
+    description: 'Summary of changes'
 
 runs:
-  using: 'composite'
-  steps:
-    - name: run action
-      shell: bash
-      run: |
-        echo "running action-yaml-update"
-        # add your action logic here
+  using: 'docker'
+  image: 'Dockerfile'
 
 branding:
-  icon: 'zap'
+  icon: 'edit'
   color: 'blue'
