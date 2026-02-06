@@ -45,8 +45,7 @@ def main() -> int:
 
         outputs.log_group(f"Processing {file_path}")
 
-        original_content = file_path.read_text()
-        data = load_yaml(file_path)
+        data, yaml_instance, original_content = load_yaml(file_path)
 
         if data is None:
             outputs.log_warning(f"Skipping empty YAML file: {file_path}")
@@ -69,12 +68,12 @@ def main() -> int:
             all_changes.extend(changes)
             changed_files.append(file_path_str)
 
-            file_diff = diff_yaml(file_path, original_content, data)
+            file_diff = diff_yaml(file_path, original_content, data, yaml_instance)
             if file_diff:
                 all_diffs.append(file_diff)
 
             if not inputs.dry_run:
-                dump_yaml(data, file_path)
+                dump_yaml(data, file_path, yaml_instance)
         else:
             outputs.log_info(f"  No changes needed for {file_path}")
 
