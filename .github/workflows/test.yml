@@ -39,31 +39,15 @@ jobs:
       - name: run tests
         run: uv run pytest --cov --cov-report=term-missing
 
-  build:
+  integration:
     runs-on: ubuntu-latest
-    name: build
+    name: integration
     needs: [lint, test]
     steps:
       - uses: actions/checkout@v4
 
-      - name: set up docker buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: build docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: false
-          tags: action-yaml-update:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  integration:
-    runs-on: ubuntu-latest
-    name: integration
-    needs: [build]
-    steps:
-      - uses: actions/checkout@v4
+        run: docker build -t action-yaml-update:test .
 
       - name: create test yaml
         run: |
@@ -74,20 +58,26 @@ jobs:
               tag: v1.0.0
           EOF
 
-      - name: test action (dry run, key mode)
-        uses: ./
-        with:
-          files: /tmp/test-values.yaml
-          mode: key
-          keys: webapp.image.tag
-          values: v2.0.0
-          dry_run: 'true'
+      - name: test key mode
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/github/workspace \
+            -w /github/workspace \
+            -e INPUT_FILES="test-values.yaml" \
+            -e INPUT_MODE="key" \
+            -e INPUT_KEYS="webapp.image.tag" \
+            -e INPUT_VALUES="v2.0.0" \
+            -e INPUT_DRY_RUN="true" \
+            action-yaml-update:test
 
-      - name: test action (dry run, image mode)
-        uses: ./
-        with:
-          files: test-values.yaml
-          mode: image
-          image_name: webapp
-          image_tag: v3.0.0
-          dry_run: 'true'
+      - name: test image mode
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/github/workspace \
+            -w /github/workspace \
+            -e INPUT_FILES="test-values.yaml" \
+            -e INPUT_MODE="image" \
+            -e INPUT_IMAGE_NAME="webapp" \
+            -e INPUT_IMAGE_TAG="v3.0.0" \
+            -e INPUT_DRY_RUN="true" \
+            action-yaml-update:test

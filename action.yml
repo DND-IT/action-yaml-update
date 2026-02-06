@@ -90,7 +90,7 @@ outputs:
 
 runs:
   using: 'docker'
-  image: 'Dockerfile'
+  image: 'docker://ghcr.io/dnd-it/action-yaml-update:main'
 
 branding:
   icon: 'edit'
