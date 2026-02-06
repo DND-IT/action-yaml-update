@@ -77,7 +77,7 @@ jobs:
       - name: test action (dry run, key mode)
         uses: ./
         with:
-          files: test-values.yaml
+          files: /tmp/test-values.yaml
           mode: key
           keys: webapp.image.tag
           values: v2.0.0
