@@ -1,6 +1,6 @@
 [project]
 name = "yaml-update"
-version = "0.1.0"
+version = "0.1.1"
 description = "GitHub Action to automate updating YAML files"
 readme = "readme.md"
 license = "MIT"
