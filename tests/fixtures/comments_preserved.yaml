@@ -1,0 +1,9 @@
+# Top-level comment
+app:
+  # This is the version
+  version: "1.2.3"  # inline comment
+  name: my-app  # app name
+  # Nested config
+  config:
+    debug: false  # should be false in prod
+    log_level: info
