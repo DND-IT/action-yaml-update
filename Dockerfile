@@ -1,21 +1,14 @@
-FROM ghcr.io/astral-sh/uv:0.6-python3.13-bookworm-slim AS builder
-
-WORKDIR /app
-
-COPY pyproject.toml .
-COPY src/ src/
-
-RUN uv venv && uv pip install .
-
-
-FROM python:3.13-slim-bookworm
+FROM node:20-slim
 
 RUN apt-get update && \
   apt-get install -y --no-install-recommends git && \
   rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/.venv /app/.venv
+WORKDIR /app
 
-ENV PATH="/app/.venv/bin:$PATH"
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
 
-ENTRYPOINT ["python", "-m", "yaml_update"]
+COPY src/ src/
+
+ENTRYPOINT ["node", "/app/src/index.js"]

@@ -14,16 +14,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
 
       - name: install dependencies
-        run: uv sync --dev
+        run: npm ci
 
-      - name: ruff check
-        run: uv run ruff check src/ tests/
+      - name: eslint
+        run: npm run lint
 
-      - name: ruff format
-        run: uv run ruff format --check src/ tests/
+      - name: prettier
+        run: npm run format
 
   test:
     runs-on: ubuntu-latest
@@ -31,13 +34,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
 
       - name: install dependencies
-        run: uv sync --dev
+        run: npm ci
 
       - name: run tests
-        run: uv run pytest --cov --cov-report=term-missing
+        run: npm run test:coverage
 
   integration:
     runs-on: ubuntu-latest
