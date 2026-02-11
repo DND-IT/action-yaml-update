@@ -160,7 +160,8 @@ func resolveKeyPath(node *yaml.Node, keyPath string) (*yaml.Node, error) {
 }
 
 func walkImageTags(node *yaml.Node, imageName, newTag string, changes *[]Change, path string) {
-	if node.Kind == yaml.MappingNode {
+	switch node.Kind {
+	case yaml.MappingNode:
 		// Build a map of key -> value node for easy lookup
 		keyMap := make(map[string]*yaml.Node)
 		for i := 0; i < len(node.Content); i += 2 {
@@ -223,7 +224,7 @@ func walkImageTags(node *yaml.Node, imageName, newTag string, changes *[]Change,
 			}
 			walkImageTags(node.Content[i+1], imageName, newTag, changes, childPath)
 		}
-	} else if node.Kind == yaml.SequenceNode {
+	case yaml.SequenceNode:
 		for i, child := range node.Content {
 			childPath := fmt.Sprintf("%s.%d", path, i)
 			if path == "" {

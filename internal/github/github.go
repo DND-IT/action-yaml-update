@@ -101,7 +101,7 @@ func EnableAutoMerge(ctx context.Context, graphqlURL, token, prNodeID, mergeMeth
 	if err != nil {
 		return fmt.Errorf("graphql request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("graphql request failed with status %d", resp.StatusCode)

@@ -210,7 +210,7 @@ app:
   name: test
 `
 		doc, _ := LoadYAML([]byte(yaml))
-		UpdateKeys(doc, []string{"app.version"}, []string{"v2.0.0"})
+		_, _ = UpdateKeys(doc, []string{"app.version"}, []string{"v2.0.0"})
 		result, _ := DumpYAML(doc)
 
 		if !strings.Contains(string(result), "# Top comment") {
@@ -230,7 +230,7 @@ app:
     tag: v1.0.0
 `
 		doc, _ := LoadYAML([]byte(yaml))
-		UpdateKeys(doc, []string{"app.image.tag"}, []string{"v2.0.0"})
+		_, _ = UpdateKeys(doc, []string{"app.image.tag"}, []string{"v2.0.0"})
 		result, _ := DumpYAML(doc)
 
 		if !strings.Contains(string(result), "  ports:") {
@@ -247,7 +247,7 @@ app:
         tag: v1.0.0
 `
 		doc, _ := LoadYAML([]byte(yaml))
-		UpdateKeys(doc, []string{"app.image.tag"}, []string{"v2.0.0"})
+		_, _ = UpdateKeys(doc, []string{"app.image.tag"}, []string{"v2.0.0"})
 		result, _ := DumpYAML(doc)
 
 		if !strings.Contains(string(result), "    ports:") {
@@ -310,7 +310,7 @@ func TestLoadFromFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.yaml")
 	content := "app:\n  version: v1.0.0\n"
-	os.WriteFile(path, []byte(content), 0644)
+	_ = os.WriteFile(path, []byte(content), 0644)
 
 	data, err := os.ReadFile(path)
 	if err != nil {

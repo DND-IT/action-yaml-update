@@ -17,13 +17,13 @@ func SetOutput(name, value string) {
 			fmt.Printf("::set-output name=%s::%s\n", name, value)
 			return
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 
 		if strings.Contains(value, "\n") {
 			delimiter := fmt.Sprintf("ghadelimiter_%d", time.Now().UnixNano())
-			fmt.Fprintf(f, "%s<<%s\n%s\n%s\n", name, delimiter, value, delimiter)
+			_, _ = fmt.Fprintf(f, "%s<<%s\n%s\n%s\n", name, delimiter, value, delimiter)
 		} else {
-			fmt.Fprintf(f, "%s=%s\n", name, value)
+			_, _ = fmt.Fprintf(f, "%s=%s\n", name, value)
 		}
 	} else {
 		fmt.Printf("::set-output name=%s::%s\n", name, value)
