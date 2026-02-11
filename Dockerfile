@@ -1,21 +1,19 @@
-FROM ghcr.io/astral-sh/uv:0.6-python3.13-bookworm-slim AS builder
+FROM golang:1.23-alpine AS builder
+
+RUN apk add --no-cache git
 
 WORKDIR /app
 
-COPY pyproject.toml .
-COPY src/ src/
+COPY go.mod go.sum ./
+RUN go mod download
 
-RUN uv venv && uv pip install .
+COPY . .
+RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /yaml-update ./cmd/yaml-update
 
+FROM alpine:3.20
 
-FROM python:3.13-slim-bookworm
+RUN apk add --no-cache git
 
-RUN apt-get update && \
-  apt-get install -y --no-install-recommends git && \
-  rm -rf /var/lib/apt/lists/*
+COPY --from=builder /yaml-update /yaml-update
 
-COPY --from=builder /app/.venv /app/.venv
-
-ENV PATH="/app/.venv/bin:$PATH"
-
-ENTRYPOINT ["python", "-m", "yaml_update"]
+ENTRYPOINT ["/yaml-update"]
