@@ -9,23 +9,10 @@
 .DS_Store
 Thumbs.db
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
-dist/
-build/
-*.egg
+# Go
+/yaml-update
+*.exe
+coverage.out
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
-# Linting
-.ruff_cache/
-
-# Virtual environments
-.venv/
-venv/
+# Build
+/dist/

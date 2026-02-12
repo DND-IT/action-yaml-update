@@ -14,16 +14,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
 
-      - name: install dependencies
-        run: uv sync --dev
-
-      - name: ruff check
-        run: uv run ruff check src/ tests/
-
-      - name: ruff format
-        run: uv run ruff format --check src/ tests/
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: latest
 
   test:
     runs-on: ubuntu-latest
@@ -31,13 +29,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: astral-sh/setup-uv@v5
-
-      - name: install dependencies
-        run: uv sync --dev
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
 
       - name: run tests
-        run: uv run pytest --cov --cov-report=term-missing
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: check coverage
+        run: |
+          go tool cover -func=coverage.out | tail -1
 
   integration:
     runs-on: ubuntu-latest
