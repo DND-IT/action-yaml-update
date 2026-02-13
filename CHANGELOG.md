@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/DND-IT/action-yaml-update/compare/v0.2.0...v0.3.0) (2026-02-13)
+
+
+### ⚠ BREAKING CHANGES
+
+* action.yml now references a versioned container image instead of :main tag. Container images are tagged with semver versions (e.g. 0.3.0, 0.3, 0) on each release.
+
+### Features
+
+* use semver container tags and pin action to release version ([c62568b](https://github.com/DND-IT/action-yaml-update/commit/c62568bc07e60996ceb49380eaca88761da5668c))
+
 ## [0.2.0](https://github.com/DND-IT/action-yaml-update/compare/v0.1.1...v0.2.0) (2026-02-12)
 
 
