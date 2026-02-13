@@ -50,9 +50,9 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             type=ref,event=branch
-            type=semver,pattern={{version}},enable=${{ needs.release-please.outputs.release_created == 'true' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ needs.release-please.outputs.release_created == 'true' }}
-            type=semver,pattern={{major}},enable=${{ needs.release-please.outputs.release_created == 'true' }}
+            type=semver,pattern={{version}},value=${{ needs.release-please.outputs.tag_name }},enable=${{ needs.release-please.outputs.release_created == 'true' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.release-please.outputs.tag_name }},enable=${{ needs.release-please.outputs.release_created == 'true' }}
+            type=semver,pattern={{major}},value=${{ needs.release-please.outputs.tag_name }},enable=${{ needs.release-please.outputs.release_created == 'true' }}
             type=sha,prefix=
 
       - name: build and push
