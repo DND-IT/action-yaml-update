@@ -2,7 +2,7 @@
 
 GitHub Action to automate updating YAML files with full format and comment preservation. Supports Helm values, Kustomize configs, and any YAML file.
 
-Uses [`ruamel.yaml`](https://yaml.readthedocs.io/) for round-trip YAML processing — comments, formatting, and quote styles are preserved.
+Built in Go using [`gopkg.in/yaml.v3`](https://pkg.go.dev/gopkg.in/yaml.v3) for round-trip YAML processing — comments, formatting, and quote styles are preserved.
 
 ## usage
 
@@ -10,7 +10,7 @@ Uses [`ruamel.yaml`](https://yaml.readthedocs.io/) for round-trip YAML processin
 
 ```yaml
 - name: update yaml values
-  uses: DND-IT/action-yaml-update@v1
+  uses: DND-IT/action-yaml-update@v0
   with:
     files: |
       deploy/values.yaml
@@ -26,7 +26,7 @@ Uses [`ruamel.yaml`](https://yaml.readthedocs.io/) for round-trip YAML processin
 
 ```yaml
 - name: update image tag
-  uses: DND-IT/action-yaml-update@v1
+  uses: DND-IT/action-yaml-update@v0
   with:
     files: |
       deploy/values.yaml
@@ -41,7 +41,7 @@ Uses [`ruamel.yaml`](https://yaml.readthedocs.io/) for round-trip YAML processin
 ```yaml
 - name: preview changes
   id: preview
-  uses: DND-IT/action-yaml-update@v1
+  uses: DND-IT/action-yaml-update@v0
   with:
     files: deploy/values.yaml
     keys: app.version
@@ -71,7 +71,7 @@ jobs:
 
       - name: update image tag
         id: update
-        uses: DND-IT/action-yaml-update@v1
+        uses: DND-IT/action-yaml-update@v0
         with:
           files: deploy/values.yaml
           mode: image
@@ -132,6 +132,8 @@ Dot-notation paths to traverse nested YAML structures:
 - `webapp.image.tag` — deeply nested
 - `images.0.newTag` — list index access
 
+Values are type-coerced to match the existing value type (int, bool, float, string).
+
 ## image mode
 
 In image mode, the action recursively searches the YAML tree for:
@@ -139,18 +141,22 @@ In image mode, the action recursively searches the YAML tree for:
 - **Helm-style**: `repository`/`tag` pairs where `repository` ends with the image name
 - **Kustomize-style**: `name`/`newTag` pairs where `name` ends with the image name
 
+All matching occurrences in the document are updated.
+
 ## development
 
 ```bash
-# install dependencies
-uv sync --dev
-
 # run tests
-uv run pytest --cov --cov-report=term-missing
+go test ./...
+
+# run tests with coverage
+go test -cover ./...
 
 # lint
-uv run ruff check src/ tests/
-uv run ruff format --check src/ tests/
+golangci-lint run
+
+# build binary
+go build -o yaml-update ./cmd/yaml-update
 
 # build docker image locally
 docker build -t action-yaml-update .
