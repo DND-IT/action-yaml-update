@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/DND-IT/action-yaml-update/compare/v0.3.1...v0.3.2) (2026-02-20)
+
+
+### Bug Fixes
+
+* retry push with rebase when remote has new commits ([41b04e0](https://github.com/DND-IT/action-yaml-update/commit/41b04e09a9f6be4db173fc0aba4d63c83f5e67c2))
+
 ## [0.3.1](https://github.com/DND-IT/action-yaml-update/compare/v0.3.0...v0.3.1) (2026-02-20)
 
 
