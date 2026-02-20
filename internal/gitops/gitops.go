@@ -10,16 +10,16 @@ import (
 
 // Configure sets up git with user info and authentication.
 func Configure(userName, userEmail, token, repository, serverURL string) error {
+	// Mark workspace as safe before any local git operations
+	cwd, _ := os.Getwd()
+	if err := run("git", "config", "--global", "--add", "safe.directory", cwd); err != nil {
+		return err
+	}
+
 	if err := run("git", "config", "user.name", userName); err != nil {
 		return err
 	}
 	if err := run("git", "config", "user.email", userEmail); err != nil {
-		return err
-	}
-
-	// Mark workspace as safe
-	cwd, _ := os.Getwd()
-	if err := run("git", "config", "--global", "--add", "safe.directory", cwd); err != nil {
 		return err
 	}
 
