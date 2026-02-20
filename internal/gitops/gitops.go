@@ -53,6 +53,7 @@ func CreateBranch(name, base string) error {
 }
 
 // CommitAndPush stages files, commits, pushes, and returns the commit SHA.
+// It retries with a rebase if the push is rejected due to remote changes.
 func CommitAndPush(files []string, message, branch string) (string, error) {
 	for _, f := range files {
 		if err := run("git", "add", f); err != nil {
@@ -64,8 +65,19 @@ func CommitAndPush(files []string, message, branch string) (string, error) {
 		return "", err
 	}
 
-	if err := run("git", "push", "-u", "origin", branch); err != nil {
-		return "", err
+	const maxRetries = 3
+	for i := range maxRetries {
+		err := run("git", "push", "-u", "origin", branch)
+		if err == nil {
+			break
+		}
+		if i == maxRetries-1 {
+			return "", fmt.Errorf("push failed after %d attempts: %w", maxRetries, err)
+		}
+		// Pull with rebase to incorporate remote changes and retry
+		if err := run("git", "pull", "--rebase", "origin", branch); err != nil {
+			return "", fmt.Errorf("pull --rebase failed: %w", err)
+		}
 	}
 
 	sha, err := output("git", "rev-parse", "HEAD")
