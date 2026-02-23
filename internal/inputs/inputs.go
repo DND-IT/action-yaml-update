@@ -3,13 +3,18 @@ package inputs
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 )
 
 // Config holds all parsed input values.
 type Config struct {
 	Files          []string
+	FilesFrom      string
+	FilesFilter    string
 	Mode           string
 	Keys           []string
 	Values         []string
@@ -59,8 +64,19 @@ func Parse() (*Config, error) {
 
 	// Parse files
 	cfg.Files = parseList(getEnv("FILES", ""), "\n")
+	cfg.FilesFrom = getEnv("FILES_FROM", "")
+	cfg.FilesFilter = getEnv("FILES_FILTER", "")
+
+	if cfg.FilesFrom != "" {
+		discovered, err := discoverFiles(cfg.FilesFrom, cfg.FilesFilter)
+		if err != nil {
+			return nil, fmt.Errorf("files_from discovery: %w", err)
+		}
+		cfg.Files = mergeFiles(cfg.Files, discovered)
+	}
+
 	if len(cfg.Files) == 0 {
-		return nil, fmt.Errorf("'files' input is required")
+		return nil, fmt.Errorf("no files to process: set 'files' and/or 'files_from'")
 	}
 
 	// Validate mode
@@ -140,6 +156,62 @@ func parseList(s, sep string) []string {
 		item = strings.TrimSpace(item)
 		if item != "" {
 			result = append(result, item)
+		}
+	}
+	return result
+}
+
+// discoverFiles walks dir recursively and returns sorted paths to YAML files.
+// If filter is non-empty, only files whose base name matches filter are included.
+func discoverFiles(dir, filter string) ([]string, error) {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return nil, fmt.Errorf("directory not found: %s", dir)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("not a directory: %s", dir)
+	}
+
+	var files []string
+	err = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		ext := strings.ToLower(filepath.Ext(path))
+		if ext != ".yml" && ext != ".yaml" {
+			return nil
+		}
+		if filter != "" && d.Name() != filter {
+			return nil
+		}
+		files = append(files, path)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sort.Strings(files)
+	return files, nil
+}
+
+// mergeFiles combines two file lists, removing duplicates while preserving order.
+func mergeFiles(a, b []string) []string {
+	seen := make(map[string]bool, len(a)+len(b))
+	var result []string
+	for _, f := range a {
+		if !seen[f] {
+			seen[f] = true
+			result = append(result, f)
+		}
+	}
+	for _, f := range b {
+		if !seen[f] {
+			seen[f] = true
+			result = append(result, f)
 		}
 	}
 	return result

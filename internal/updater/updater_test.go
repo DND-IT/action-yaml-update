@@ -256,6 +256,82 @@ app:
 	})
 }
 
+func TestBlankLinesPreserved(t *testing.T) {
+	t.Run("key mode preserves blank lines", func(t *testing.T) {
+		input := `app:
+  version: v1.0.0
+
+  name: test
+
+  replicas: 3
+`
+		doc, _ := LoadYAML([]byte(input))
+		_, _ = UpdateKeys(doc, []string{"app.version"}, []string{"v2.0.0"})
+		result, _ := DumpYAML(doc)
+
+		if strings.Count(string(result), "\n\n") != 2 {
+			t.Errorf("blank lines not preserved, got:\n%s", result)
+		}
+		if !strings.Contains(string(result), "v2.0.0") {
+			t.Error("value not updated")
+		}
+	})
+
+	t.Run("image mode preserves blank lines", func(t *testing.T) {
+		input := `web:
+  image:
+    repository: ghcr.io/myorg/webapp
+    tag: latest
+
+  replicas: 2
+
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  configMap:
+    data:
+      ENVIRONMENT: "development"
+`
+		doc, _ := LoadYAML([]byte(input))
+		changes := UpdateImageTags(doc, "webapp", "v1.5.0")
+		result, _ := DumpYAML(doc)
+
+		if len(changes) != 1 {
+			t.Fatalf("expected 1 change, got %d", len(changes))
+		}
+		if strings.Count(string(result), "\n\n") != 3 {
+			t.Errorf("expected 3 blank line gaps, got %d, result:\n%s",
+				strings.Count(string(result), "\n\n"), result)
+		}
+		if !strings.Contains(string(result), "tag: v1.5.0") {
+			t.Errorf("tag not updated, got:\n%s", result)
+		}
+		if strings.Contains(string(result), "tag: latest") {
+			t.Error("old tag still present")
+		}
+	})
+
+	t.Run("quoted values preserved with blank lines", func(t *testing.T) {
+		input := `app:
+  name: "hello"
+
+  version: v1.0.0
+`
+		doc, _ := LoadYAML([]byte(input))
+		_, _ = UpdateKeys(doc, []string{"app.name"}, []string{"world"})
+		result, _ := DumpYAML(doc)
+
+		if !strings.Contains(string(result), `"world"`) {
+			t.Errorf("quoted style not preserved, got:\n%s", result)
+		}
+		if strings.Count(string(result), "\n\n") != 1 {
+			t.Errorf("blank lines not preserved, got:\n%s", result)
+		}
+	})
+}
+
 func TestDiff(t *testing.T) {
 	t.Run("shows changes", func(t *testing.T) {
 		original := "app:\n  version: v1.0.0\n"

@@ -3,11 +3,21 @@ package updater
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
+// valueEdit records a targeted replacement at a specific position in the original content.
+type valueEdit struct {
+	Line     int        // 1-based line number
+	Column   int        // 1-based column number
+	OldValue string     // original scalar value (unquoted)
+	NewValue string     // replacement scalar value (unquoted)
+	Style    yaml.Style // quoting style to preserve
+}
 
 // Change represents a single value change made to the YAML.
 type Change struct {
@@ -18,8 +28,10 @@ type Change struct {
 
 // Document wraps a yaml.Node with detected indentation.
 type Document struct {
-	Root   *yaml.Node
-	Indent int
+	Root     *yaml.Node
+	Indent   int
+	original []byte      // stored for targeted edits
+	edits    []valueEdit // tracked during updates
 }
 
 // LoadYAML parses YAML content into a Document for format-preserving editing.
@@ -32,13 +44,20 @@ func LoadYAML(content []byte) (*Document, error) {
 	indent := detectIndent(content)
 
 	return &Document{
-		Root:   &node,
-		Indent: indent,
+		Root:     &node,
+		Indent:   indent,
+		original: content,
 	}, nil
 }
 
 // DumpYAML serializes a Document back to bytes, preserving formatting.
+// When edits were tracked during updates, it applies targeted replacements
+// to the original content to preserve blank lines and other formatting.
 func DumpYAML(doc *Document) ([]byte, error) {
+	if len(doc.edits) > 0 && len(doc.original) > 0 {
+		return applyEdits(doc.original, doc.edits), nil
+	}
+
 	var buf strings.Builder
 	enc := yaml.NewEncoder(&buf)
 	enc.SetIndent(doc.Indent)
@@ -48,6 +67,51 @@ func DumpYAML(doc *Document) ([]byte, error) {
 	}
 
 	return []byte(buf.String()), nil
+}
+
+// applyEdits performs targeted text replacements at exact positions in the original content.
+func applyEdits(original []byte, edits []valueEdit) []byte {
+	lines := strings.SplitAfter(string(original), "\n")
+
+	// Sort edits in reverse order so earlier positions stay valid after replacement.
+	sorted := make([]valueEdit, len(edits))
+	copy(sorted, edits)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Line != sorted[j].Line {
+			return sorted[i].Line > sorted[j].Line
+		}
+		return sorted[i].Column > sorted[j].Column
+	})
+
+	for _, edit := range sorted {
+		lineIdx := edit.Line - 1
+		if lineIdx < 0 || lineIdx >= len(lines) {
+			continue
+		}
+
+		line := lines[lineIdx]
+		colIdx := edit.Column - 1
+
+		oldRepr := formatScalar(edit.OldValue, edit.Style)
+		newRepr := formatScalar(edit.NewValue, edit.Style)
+
+		if colIdx < len(line) && colIdx+len(oldRepr) <= len(line) && line[colIdx:colIdx+len(oldRepr)] == oldRepr {
+			lines[lineIdx] = line[:colIdx] + newRepr + line[colIdx+len(oldRepr):]
+		}
+	}
+
+	return []byte(strings.Join(lines, ""))
+}
+
+func formatScalar(value string, style yaml.Style) string {
+	switch style {
+	case yaml.DoubleQuotedStyle:
+		return `"` + value + `"`
+	case yaml.SingleQuotedStyle:
+		return "'" + value + "'"
+	default:
+		return value
+	}
 }
 
 func detectIndent(content []byte) int {
@@ -87,6 +151,13 @@ func UpdateKeys(doc *Document, keys, values []string) ([]Change, error) {
 		coerced := coerceValue(newValue, node)
 
 		if node.Value != coerced {
+			doc.edits = append(doc.edits, valueEdit{
+				Line:     node.Line,
+				Column:   node.Column,
+				OldValue: node.Value,
+				NewValue: coerced,
+				Style:    node.Style,
+			})
 			changes = append(changes, Change{
 				Key: keyPath,
 				Old: oldValue,
@@ -121,7 +192,7 @@ func UpdateImageTags(doc *Document, imageName, newTag string) []Change {
 		content = doc.Root.Content[0]
 	}
 
-	walkImageTags(content, imageName, newTag, &changes, "")
+	walkImageTags(doc, content, imageName, newTag, &changes, "")
 	return changes
 }
 
@@ -159,7 +230,7 @@ func resolveKeyPath(node *yaml.Node, keyPath string) (*yaml.Node, error) {
 	return current, nil
 }
 
-func walkImageTags(node *yaml.Node, imageName, newTag string, changes *[]Change, path string) {
+func walkImageTags(doc *Document, node *yaml.Node, imageName, newTag string, changes *[]Change, path string) {
 	switch node.Kind {
 	case yaml.MappingNode:
 		// Build a map of key -> value node for easy lookup
@@ -177,6 +248,13 @@ func walkImageTags(node *yaml.Node, imageName, newTag string, changes *[]Change,
 					oldTag := nodeValue(tagNode)
 					coerced := coerceValue(newTag, tagNode)
 					if tagNode.Value != coerced {
+						doc.edits = append(doc.edits, valueEdit{
+							Line:     tagNode.Line,
+							Column:   tagNode.Column,
+							OldValue: tagNode.Value,
+							NewValue: coerced,
+							Style:    tagNode.Style,
+						})
 						tagPath := "tag"
 						if path != "" {
 							tagPath = path + ".tag"
@@ -200,6 +278,13 @@ func walkImageTags(node *yaml.Node, imageName, newTag string, changes *[]Change,
 					oldTag := nodeValue(newTagNode)
 					coerced := coerceValue(newTag, newTagNode)
 					if newTagNode.Value != coerced {
+						doc.edits = append(doc.edits, valueEdit{
+							Line:     newTagNode.Line,
+							Column:   newTagNode.Column,
+							OldValue: newTagNode.Value,
+							NewValue: coerced,
+							Style:    newTagNode.Style,
+						})
 						tagPath := "newTag"
 						if path != "" {
 							tagPath = path + ".newTag"
@@ -222,7 +307,7 @@ func walkImageTags(node *yaml.Node, imageName, newTag string, changes *[]Change,
 			if path != "" {
 				childPath = path + "." + key
 			}
-			walkImageTags(node.Content[i+1], imageName, newTag, changes, childPath)
+			walkImageTags(doc, node.Content[i+1], imageName, newTag, changes, childPath)
 		}
 	case yaml.SequenceNode:
 		for i, child := range node.Content {
@@ -230,7 +315,7 @@ func walkImageTags(node *yaml.Node, imageName, newTag string, changes *[]Change,
 			if path == "" {
 				childPath = strconv.Itoa(i)
 			}
-			walkImageTags(child, imageName, newTag, changes, childPath)
+			walkImageTags(doc, child, imageName, newTag, changes, childPath)
 		}
 	}
 }

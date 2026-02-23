@@ -5,7 +5,13 @@ author: 'group:default/dai'
 inputs:
   files:
     description: 'Newline-separated YAML file paths to update'
-    required: true
+    required: false
+  files_from:
+    description: 'Directory to recursively search for YAML files (.yml/.yaml)'
+    required: false
+  files_filter:
+    description: 'Filename filter for files_from discovery (e.g. values.yaml)'
+    required: false
   mode:
     description: 'Update mode: key (explicit paths) or image (search by image name)'
     required: false
