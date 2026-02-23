@@ -36,6 +36,23 @@ Built in Go using [`gopkg.in/yaml.v3`](https://pkg.go.dev/gopkg.in/yaml.v3) for 
     image_tag: v2.0.0
 ```
 
+### file discovery with `files_from`
+
+Instead of listing every file, point at a directory and let the action discover YAML files:
+
+```yaml
+- name: update all env values
+  uses: DND-IT/action-yaml-update@v0
+  with:
+    files_from: deploy/charts/myapp/envs
+    files_filter: values.yaml
+    mode: image
+    image_name: myapp
+    image_tag: ${{ github.sha }}
+```
+
+`files_from` recursively searches for `.yml` and `.yaml` files. Use `files_filter` to narrow by filename (e.g. `values.yaml`). Both `files` and `files_from` can be combined — results are merged and deduplicated.
+
 ### dry run
 
 ```yaml
@@ -92,7 +109,9 @@ jobs:
 
 | Input | Required | Default | Description |
 |-------|----------|---------|-------------|
-| `files` | yes | — | Newline-separated YAML file paths to update |
+| `files` | no | — | Newline-separated YAML file paths to update |
+| `files_from` | no | — | Directory to recursively search for YAML files (`.yml`/`.yaml`) |
+| `files_filter` | no | — | Filename filter for `files_from` discovery (e.g. `values.yaml`) |
 | `mode` | no | `key` | Update mode: `key` (explicit paths) or `image` (search by image name) |
 | `keys` | no | — | Newline-separated dot-notation key paths (mode=key) |
 | `values` | no | — | Newline-separated values corresponding to keys (mode=key) |
@@ -112,6 +131,8 @@ jobs:
 | `dry_run` | no | `false` | Preview changes without modifying anything |
 | `git_user_name` | no | `github-actions[bot]` | Git committer name |
 | `git_user_email` | no | `41898282+github-actions[bot]@...` | Git committer email |
+
+> **Note:** At least one of `files` or `files_from` must be provided.
 
 ## outputs
 
