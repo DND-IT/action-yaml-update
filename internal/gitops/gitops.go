@@ -45,15 +45,18 @@ func GetDefaultBranch() string {
 }
 
 // CreateBranch creates and checks out a new branch from a base.
+// It always starts fresh from origin/<base>, discarding any existing local branch.
 func CreateBranch(name, base string) error {
 	if err := run("git", "fetch", "origin", base); err != nil {
 		return err
 	}
+	// Delete local branch if it exists (ignore error if it doesn't)
+	_ = run("git", "branch", "-D", name)
 	return run("git", "checkout", "-b", name, "origin/"+base)
 }
 
-// CommitAndPush stages files, commits, pushes, and returns the commit SHA.
-// It retries with a rebase if the push is rejected due to remote changes.
+// CommitAndPush stages files, commits, and force-pushes to origin.
+// The branch always represents HEAD + the YAML changes, so force push is the default.
 func CommitAndPush(files []string, message, branch string) (string, error) {
 	for _, f := range files {
 		if err := run("git", "add", f); err != nil {
@@ -65,19 +68,8 @@ func CommitAndPush(files []string, message, branch string) (string, error) {
 		return "", err
 	}
 
-	const maxRetries = 3
-	for i := range maxRetries {
-		err := run("git", "push", "-u", "origin", branch)
-		if err == nil {
-			break
-		}
-		if i == maxRetries-1 {
-			return "", fmt.Errorf("push failed after %d attempts: %w", maxRetries, err)
-		}
-		// Pull with rebase to incorporate remote changes and retry
-		if err := run("git", "pull", "--rebase", "origin", branch); err != nil {
-			return "", fmt.Errorf("pull --rebase failed: %w", err)
-		}
+	if err := run("git", "push", "--force-with-lease", "-u", "origin", branch); err != nil {
+		return "", fmt.Errorf("push failed: %w", err)
 	}
 
 	sha, err := output("git", "rev-parse", "HEAD")
