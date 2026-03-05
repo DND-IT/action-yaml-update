@@ -437,14 +437,28 @@ frontend:
 			check:  "image_tag: v2.0.0",
 		},
 		{
-			name: "marker with id suffix",
+			name: "base marker matches all suffixes",
 			yaml: `api:
-  image_tag: v1.0.0 # x-yaml-update:image-tag
+  image_tag: v1.0.0 # x-yaml-update:api
   replicas: 3 # x-yaml-update:replicas
 `,
 			marker: "x-yaml-update",
 			value:  "v2.0.0",
 			want:   2,
+		},
+		{
+			name: "specific suffix only matches that suffix",
+			yaml: `api:
+  image_tag: v1.0.0 # x-yaml-update:api
+frontend:
+  image_tag: v2.0.0 # x-yaml-update:frontend
+shared:
+  version: v0.1.0 # x-yaml-update
+`,
+			marker: "x-yaml-update:api",
+			value:  "v3.0.0",
+			want:   1,
+			check:  "image_tag: v3.0.0 # x-yaml-update:api",
 		},
 		{
 			name: "same value no change",
@@ -507,6 +521,10 @@ func TestHasMarker(t *testing.T) {
 		{"# x-yaml-updater", "x-yaml-update", false},
 		{"", "x-yaml-update", false},
 		{"# my-marker", "my-marker", true},
+		// specific suffix targeting
+		{"# x-yaml-update:api", "x-yaml-update:api", true},
+		{"# x-yaml-update:frontend", "x-yaml-update:api", false},
+		{"# x-yaml-update", "x-yaml-update:api", false},
 	}
 
 	for _, tt := range tests {

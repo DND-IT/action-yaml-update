@@ -247,11 +247,11 @@ func TestParseMarkerMode(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if cfg.Marker != "x-yaml-update" {
-		t.Errorf("expected default marker 'x-yaml-update', got %q", cfg.Marker)
+	if len(cfg.Markers) != 1 || cfg.Markers[0] != "x-yaml-update" {
+		t.Errorf("expected default marker ['x-yaml-update'], got %v", cfg.Markers)
 	}
-	if cfg.Value != "v2.0.0" {
-		t.Errorf("expected value 'v2.0.0', got %q", cfg.Value)
+	if len(cfg.MarkerValues) != 1 || cfg.MarkerValues[0] != "v2.0.0" {
+		t.Errorf("expected marker values ['v2.0.0'], got %v", cfg.MarkerValues)
 	}
 }
 
@@ -284,8 +284,75 @@ func TestParseMarkerModeCustomMarker(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if cfg.Marker != "my-tracking-id" {
-		t.Errorf("expected marker 'my-tracking-id', got %q", cfg.Marker)
+	if len(cfg.Markers) != 1 || cfg.Markers[0] != "my-tracking-id" {
+		t.Errorf("expected marker ['my-tracking-id'], got %v", cfg.Markers)
+	}
+}
+
+func TestParseMarkerModeMultipleMarkers(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "values.yaml")
+	mkFile(t, f)
+
+	setEnv(t, "FILES", f)
+	setEnv(t, "MODE", "marker")
+	setEnv(t, "MARKERS", "x-yaml-update:api\nx-yaml-update:frontend")
+	setEnv(t, "VALUES", "v1.0.0\nv2.0.0")
+
+	cfg, err := Parse()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(cfg.Markers) != 2 {
+		t.Fatalf("expected 2 markers, got %d", len(cfg.Markers))
+	}
+	if cfg.Markers[0] != "x-yaml-update:api" || cfg.Markers[1] != "x-yaml-update:frontend" {
+		t.Errorf("unexpected markers: %v", cfg.Markers)
+	}
+	if cfg.MarkerValues[0] != "v1.0.0" || cfg.MarkerValues[1] != "v2.0.0" {
+		t.Errorf("unexpected values: %v", cfg.MarkerValues)
+	}
+}
+
+func TestParseMarkerModeMultipleMarkersSingleValue(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "values.yaml")
+	mkFile(t, f)
+
+	setEnv(t, "FILES", f)
+	setEnv(t, "MODE", "marker")
+	setEnv(t, "MARKERS", "x-yaml-update:api\nx-yaml-update:frontend")
+	setEnv(t, "VALUE", "v3.0.0")
+
+	cfg, err := Parse()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(cfg.MarkerValues) != 2 {
+		t.Fatalf("expected 2 values, got %d", len(cfg.MarkerValues))
+	}
+	for i, v := range cfg.MarkerValues {
+		if v != "v3.0.0" {
+			t.Errorf("marker_values[%d] = %q, want %q", i, v, "v3.0.0")
+		}
+	}
+}
+
+func TestParseMarkerModeCountMismatch(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "values.yaml")
+	mkFile(t, f)
+
+	setEnv(t, "FILES", f)
+	setEnv(t, "MODE", "marker")
+	setEnv(t, "MARKERS", "x-yaml-update:api\nx-yaml-update:frontend")
+	setEnv(t, "VALUES", "v1.0.0")
+
+	_, err := Parse()
+	if err == nil {
+		t.Fatal("expected error when markers and values count mismatch")
 	}
 }
 

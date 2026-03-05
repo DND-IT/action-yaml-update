@@ -19,7 +19,8 @@ type Config struct {
 	Keys           []string
 	Values         []string
 	Value          string
-	Marker         string
+	Markers        []string
+	MarkerValues   []string
 	ImageName      string
 	ImageTag       string
 	CreatePR       bool
@@ -126,10 +127,28 @@ func Parse() (*Config, error) {
 		}
 
 	case "marker":
-		cfg.Marker = getEnv("MARKER", "x-yaml-update")
+		cfg.Markers = parseList(getEnv("MARKERS", ""), "\n")
+		cfg.MarkerValues = parseList(getEnv("VALUES", ""), "\n")
 
-		if cfg.Value == "" {
-			return nil, fmt.Errorf("'value' input is required for mode=marker")
+		// Single marker shorthand
+		if len(cfg.Markers) == 0 {
+			marker := getEnv("MARKER", "x-yaml-update")
+			cfg.Markers = []string{marker}
+		}
+
+		// Expand singular value to all markers
+		if cfg.Value != "" && len(cfg.MarkerValues) == 0 {
+			cfg.MarkerValues = make([]string, len(cfg.Markers))
+			for i := range cfg.MarkerValues {
+				cfg.MarkerValues[i] = cfg.Value
+			}
+		}
+
+		if len(cfg.MarkerValues) == 0 {
+			return nil, fmt.Errorf("'value' or 'values' input is required for mode=marker")
+		}
+		if len(cfg.Markers) != len(cfg.MarkerValues) {
+			return nil, fmt.Errorf("number of markers (%d) must match number of values (%d)", len(cfg.Markers), len(cfg.MarkerValues))
 		}
 	}
 

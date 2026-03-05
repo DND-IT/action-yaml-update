@@ -17,14 +17,17 @@ inputs:
     required: false
     default: 'key'
   marker:
-    description: 'Comment marker to match in YAML (mode=marker, default: x-yaml-update)'
+    description: 'Single comment marker to match (mode=marker, default: x-yaml-update)'
     required: false
     default: 'x-yaml-update'
+  markers:
+    description: 'Newline-separated markers with corresponding values (mode=marker)'
+    required: false
   keys:
     description: 'Newline-separated dot-notation key paths (mode=key)'
     required: false
   values:
-    description: 'Newline-separated values corresponding to keys (mode=key)'
+    description: 'Newline-separated values corresponding to keys (mode=key) or markers (mode=marker)'
     required: false
   value:
     description: 'Single value applied to all keys (mode=key) or all marker matches (mode=marker)'

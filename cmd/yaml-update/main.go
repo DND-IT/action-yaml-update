@@ -77,7 +77,10 @@ func run() error {
 		case "image":
 			changes = updater.UpdateImageTags(doc, cfg.ImageName, cfg.ImageTag)
 		case "marker":
-			changes = updater.UpdateByMarker(doc, cfg.Marker, cfg.Value)
+			for i, marker := range cfg.Markers {
+				mc := updater.UpdateByMarker(doc, marker, cfg.MarkerValues[i])
+				changes = append(changes, mc...)
+			}
 		}
 
 		if len(changes) > 0 {
