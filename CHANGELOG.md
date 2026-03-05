@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/DND-IT/action-yaml-update/compare/v0.3.3...v0.3.4) (2026-03-05)
+
+
+### Features
+
+* add singular value input and marker mode for comment-based updates ([#12](https://github.com/DND-IT/action-yaml-update/issues/12)) ([7586c6c](https://github.com/DND-IT/action-yaml-update/commit/7586c6cfbfddda97cde85da6ef57d55bf7b2a097))
+
 ## [0.3.3](https://github.com/DND-IT/action-yaml-update/compare/v0.3.2...v0.3.3) (2026-03-04)
 
 
