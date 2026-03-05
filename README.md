@@ -22,6 +22,90 @@ Built in Go using [`gopkg.in/yaml.v3`](https://pkg.go.dev/gopkg.in/yaml.v3) for 
       5
 ```
 
+### key mode with single value
+
+When all keys should get the same value, use `value` (singular) instead of repeating:
+
+```yaml
+- name: update all tags
+  uses: DND-IT/action-yaml-update@v0
+  with:
+    files: deploy/values.yaml
+    keys: |
+      api.image_tag
+      api.metadata.labels.datadog.version
+      frontend.image_tag
+      frontend.metadata.labels.datadog.version
+    value: ${{ github.event.release.tag_name }}
+```
+
+### marker mode (comment-based)
+
+Tag values in your YAML with `# x-yaml-update` comments. The action finds and updates all marked values:
+
+```yaml
+# deploy/values.yaml
+api:
+  image_tag: v1.0.0 # x-yaml-update
+  metadata:
+    labels:
+      datadog:
+        version: v1.0.0 # x-yaml-update
+frontend:
+  image_tag: v1.0.0 # x-yaml-update
+```
+
+```yaml
+- name: update marked values
+  uses: DND-IT/action-yaml-update@v0
+  with:
+    files: deploy/values.yaml
+    mode: marker
+    value: ${{ github.event.release.tag_name }}
+```
+
+Use suffixes to target specific values when a file contains multiple images:
+
+```yaml
+# deploy/values.yaml
+api:
+  image_tag: v1.0.0 # x-yaml-update:api
+frontend:
+  image_tag: v2.0.0 # x-yaml-update:frontend
+```
+
+Update multiple markers with different values in a single step using `markers` + `values`:
+
+```yaml
+- name: update all images
+  uses: DND-IT/action-yaml-update@v0
+  with:
+    files: deploy/values.yaml
+    mode: marker
+    markers: |
+      x-yaml-update:api
+      x-yaml-update:frontend
+    values: |
+      ${{ needs.build-api.outputs.tag }}
+      ${{ needs.build-frontend.outputs.tag }}
+```
+
+Or use `value` (singular) to apply the same value to all listed markers:
+
+```yaml
+- name: update all images to same tag
+  uses: DND-IT/action-yaml-update@v0
+  with:
+    files: deploy/values.yaml
+    mode: marker
+    markers: |
+      x-yaml-update:api
+      x-yaml-update:frontend
+    value: ${{ github.event.release.tag_name }}
+```
+
+The base marker (`marker: x-yaml-update`) matches all suffixes — `# x-yaml-update`, `# x-yaml-update:api`, `# x-yaml-update:frontend` all match. A specific suffix (`marker: x-yaml-update:api`) only matches that exact suffix. Custom markers are also supported (e.g. `marker: my-tracking-id`).
+
 ### image mode (search by image name)
 
 ```yaml
@@ -112,9 +196,12 @@ jobs:
 | `files` | no | — | Newline-separated YAML file paths to update |
 | `files_from` | no | — | Directory to recursively search for YAML files (`.yml`/`.yaml`) |
 | `files_filter` | no | — | Filename filter for `files_from` discovery (e.g. `values.yaml`) |
-| `mode` | no | `key` | Update mode: `key` (explicit paths) or `image` (search by image name) |
+| `mode` | no | `key` | Update mode: `key`, `image`, or `marker` |
 | `keys` | no | — | Newline-separated dot-notation key paths (mode=key) |
 | `values` | no | — | Newline-separated values corresponding to keys (mode=key) |
+| `value` | no | — | Single value applied to all keys (mode=key) or all markers (mode=marker) |
+| `marker` | no | `x-yaml-update` | Single comment marker to match (mode=marker) |
+| `markers` | no | — | Newline-separated markers with corresponding values (mode=marker) |
 | `image_name` | no | — | Image name suffix to search for (mode=image) |
 | `image_tag` | no | — | New tag value (mode=image) |
 | `create_pr` | no | `true` | Create PR vs. direct commit |

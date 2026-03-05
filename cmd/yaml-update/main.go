@@ -67,14 +67,20 @@ func run() error {
 		}
 
 		var changes []updater.Change
-		if cfg.Mode == "key" {
+		switch cfg.Mode {
+		case "key":
 			changes, err = updater.UpdateKeys(doc, cfg.Keys, cfg.Values)
 			if err != nil {
 				outputs.LogEndGroup()
 				return fmt.Errorf("update failed for %s: %w", filePath, err)
 			}
-		} else {
+		case "image":
 			changes = updater.UpdateImageTags(doc, cfg.ImageName, cfg.ImageTag)
+		case "marker":
+			for i, marker := range cfg.Markers {
+				mc := updater.UpdateByMarker(doc, marker, cfg.MarkerValues[i])
+				changes = append(changes, mc...)
+			}
 		}
 
 		if len(changes) > 0 {

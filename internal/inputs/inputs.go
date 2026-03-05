@@ -18,6 +18,9 @@ type Config struct {
 	Mode           string
 	Keys           []string
 	Values         []string
+	Value          string
+	Markers        []string
+	MarkerValues   []string
 	ImageName      string
 	ImageTag       string
 	CreatePR       bool
@@ -80,25 +83,39 @@ func Parse() (*Config, error) {
 	}
 
 	// Validate mode
-	if cfg.Mode != "key" && cfg.Mode != "image" {
-		return nil, fmt.Errorf("invalid mode '%s'. Must be 'key' or 'image'", cfg.Mode)
+	if cfg.Mode != "key" && cfg.Mode != "image" && cfg.Mode != "marker" {
+		return nil, fmt.Errorf("invalid mode '%s'. Must be 'key', 'image', or 'marker'", cfg.Mode)
 	}
 
+	// Parse shared value input
+	cfg.Value = getEnv("VALUE", "")
+
 	// Parse mode-specific inputs
-	if cfg.Mode == "key" {
+	switch cfg.Mode {
+	case "key":
 		cfg.Keys = parseList(getEnv("KEYS", ""), "\n")
 		cfg.Values = parseList(getEnv("VALUES", ""), "\n")
 
 		if len(cfg.Keys) == 0 {
 			return nil, fmt.Errorf("'keys' input is required for mode=key")
 		}
+
+		// If singular value is set, expand it to all keys
+		if cfg.Value != "" && len(cfg.Values) == 0 {
+			cfg.Values = make([]string, len(cfg.Keys))
+			for i := range cfg.Values {
+				cfg.Values[i] = cfg.Value
+			}
+		}
+
 		if len(cfg.Values) == 0 {
-			return nil, fmt.Errorf("'values' input is required for mode=key")
+			return nil, fmt.Errorf("'values' or 'value' input is required for mode=key")
 		}
 		if len(cfg.Keys) != len(cfg.Values) {
 			return nil, fmt.Errorf("number of keys (%d) must match number of values (%d)", len(cfg.Keys), len(cfg.Values))
 		}
-	} else {
+
+	case "image":
 		cfg.ImageName = getEnv("IMAGE_NAME", "")
 		cfg.ImageTag = getEnv("IMAGE_TAG", "")
 
@@ -107,6 +124,31 @@ func Parse() (*Config, error) {
 		}
 		if cfg.ImageTag == "" {
 			return nil, fmt.Errorf("'image_tag' input is required for mode=image")
+		}
+
+	case "marker":
+		cfg.Markers = parseList(getEnv("MARKERS", ""), "\n")
+		cfg.MarkerValues = parseList(getEnv("VALUES", ""), "\n")
+
+		// Single marker shorthand
+		if len(cfg.Markers) == 0 {
+			marker := getEnv("MARKER", "x-yaml-update")
+			cfg.Markers = []string{marker}
+		}
+
+		// Expand singular value to all markers
+		if cfg.Value != "" && len(cfg.MarkerValues) == 0 {
+			cfg.MarkerValues = make([]string, len(cfg.Markers))
+			for i := range cfg.MarkerValues {
+				cfg.MarkerValues[i] = cfg.Value
+			}
+		}
+
+		if len(cfg.MarkerValues) == 0 {
+			return nil, fmt.Errorf("'value' or 'values' input is required for mode=marker")
+		}
+		if len(cfg.Markers) != len(cfg.MarkerValues) {
+			return nil, fmt.Errorf("number of markers (%d) must match number of values (%d)", len(cfg.Markers), len(cfg.MarkerValues))
 		}
 	}
 
