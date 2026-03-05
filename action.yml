@@ -13,14 +13,21 @@ inputs:
     description: 'Filename filter for files_from discovery (e.g. values.yaml)'
     required: false
   mode:
-    description: 'Update mode: key (explicit paths) or image (search by image name)'
+    description: 'Update mode: key (explicit paths), image (search by image name), or marker (comment-based)'
     required: false
     default: 'key'
+  marker:
+    description: 'Comment marker to match in YAML (mode=marker, default: x-yaml-update)'
+    required: false
+    default: 'x-yaml-update'
   keys:
     description: 'Newline-separated dot-notation key paths (mode=key)'
     required: false
   values:
     description: 'Newline-separated values corresponding to keys (mode=key)'
+    required: false
+  value:
+    description: 'Single value applied to all keys (mode=key) or all marker matches (mode=marker)'
     required: false
   image_name:
     description: 'Image name suffix to search for (mode=image)'

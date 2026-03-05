@@ -187,6 +187,108 @@ func TestDiscoverFilesYmlExtension(t *testing.T) {
 	}
 }
 
+func TestParseSingularValue(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "values.yaml")
+	mkFile(t, f)
+
+	setEnv(t, "FILES", f)
+	setEnv(t, "MODE", "key")
+	setEnv(t, "KEYS", "a.tag\nb.tag\nc.tag")
+	setEnv(t, "VALUE", "v2.0.0")
+
+	cfg, err := Parse()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(cfg.Values) != 3 {
+		t.Fatalf("expected 3 values, got %d", len(cfg.Values))
+	}
+	for i, v := range cfg.Values {
+		if v != "v2.0.0" {
+			t.Errorf("values[%d] = %q, want %q", i, v, "v2.0.0")
+		}
+	}
+}
+
+func TestParseSingularValueIgnoredWhenValuesSet(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "values.yaml")
+	mkFile(t, f)
+
+	setEnv(t, "FILES", f)
+	setEnv(t, "MODE", "key")
+	setEnv(t, "KEYS", "a.tag\nb.tag")
+	setEnv(t, "VALUES", "v1.0.0\nv2.0.0")
+	setEnv(t, "VALUE", "ignored")
+
+	cfg, err := Parse()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.Values[0] != "v1.0.0" || cfg.Values[1] != "v2.0.0" {
+		t.Errorf("expected values from VALUES, got %v", cfg.Values)
+	}
+}
+
+func TestParseMarkerMode(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "values.yaml")
+	mkFile(t, f)
+
+	setEnv(t, "FILES", f)
+	setEnv(t, "MODE", "marker")
+	setEnv(t, "VALUE", "v2.0.0")
+
+	cfg, err := Parse()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.Marker != "x-yaml-update" {
+		t.Errorf("expected default marker 'x-yaml-update', got %q", cfg.Marker)
+	}
+	if cfg.Value != "v2.0.0" {
+		t.Errorf("expected value 'v2.0.0', got %q", cfg.Value)
+	}
+}
+
+func TestParseMarkerModeRequiresValue(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "values.yaml")
+	mkFile(t, f)
+
+	setEnv(t, "FILES", f)
+	setEnv(t, "MODE", "marker")
+
+	_, err := Parse()
+	if err == nil {
+		t.Fatal("expected error when value is not set for marker mode")
+	}
+}
+
+func TestParseMarkerModeCustomMarker(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "values.yaml")
+	mkFile(t, f)
+
+	setEnv(t, "FILES", f)
+	setEnv(t, "MODE", "marker")
+	setEnv(t, "VALUE", "v2.0.0")
+	setEnv(t, "MARKER", "my-tracking-id")
+
+	cfg, err := Parse()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if cfg.Marker != "my-tracking-id" {
+		t.Errorf("expected marker 'my-tracking-id', got %q", cfg.Marker)
+	}
+}
+
 // mkFile creates a file with parent directories and minimal YAML content.
 func mkFile(t *testing.T, path string) {
 	t.Helper()

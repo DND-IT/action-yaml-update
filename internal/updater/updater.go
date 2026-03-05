@@ -196,6 +196,75 @@ func UpdateImageTags(doc *Document, imageName, newTag string) []Change {
 	return changes
 }
 
+// UpdateByMarker searches for scalar nodes with an inline comment matching the marker
+// and updates their values. The marker can be a bare marker (e.g. "x-yaml-update")
+// or the comment may contain additional text after the marker.
+func UpdateByMarker(doc *Document, marker, newValue string) []Change {
+	var changes []Change
+
+	content := doc.Root
+	if doc.Root.Kind == yaml.DocumentNode && len(doc.Root.Content) > 0 {
+		content = doc.Root.Content[0]
+	}
+
+	walkMarker(doc, content, marker, newValue, &changes, "")
+	return changes
+}
+
+func walkMarker(doc *Document, node *yaml.Node, marker, newValue string, changes *[]Change, path string) {
+	switch node.Kind {
+	case yaml.MappingNode:
+		for i := 0; i < len(node.Content); i += 2 {
+			keyNode := node.Content[i]
+			valNode := node.Content[i+1]
+			childPath := keyNode.Value
+			if path != "" {
+				childPath = path + "." + keyNode.Value
+			}
+
+			if valNode.Kind == yaml.ScalarNode && hasMarker(valNode.LineComment, marker) {
+				oldValue := nodeValue(valNode)
+				coerced := coerceValue(newValue, valNode)
+
+				if valNode.Value != coerced {
+					doc.edits = append(doc.edits, valueEdit{
+						Line:     valNode.Line,
+						Column:   valNode.Column,
+						OldValue: valNode.Value,
+						NewValue: coerced,
+						Style:    valNode.Style,
+					})
+					*changes = append(*changes, Change{
+						Key: childPath,
+						Old: oldValue,
+						New: parseValue(coerced),
+					})
+					valNode.Value = coerced
+				}
+			} else {
+				walkMarker(doc, valNode, marker, newValue, changes, childPath)
+			}
+		}
+	case yaml.SequenceNode:
+		for i, child := range node.Content {
+			childPath := fmt.Sprintf("%s.%d", path, i)
+			if path == "" {
+				childPath = strconv.Itoa(i)
+			}
+			walkMarker(doc, child, marker, newValue, changes, childPath)
+		}
+	}
+}
+
+// hasMarker checks whether a comment string contains the given marker.
+// Supports both "# x-yaml-update" and "# x-yaml-update:some-id" formats.
+func hasMarker(comment, marker string) bool {
+	comment = strings.TrimSpace(comment)
+	comment = strings.TrimPrefix(comment, "#")
+	comment = strings.TrimSpace(comment)
+	return comment == marker || strings.HasPrefix(comment, marker+":")
+}
+
 func resolveKeyPath(node *yaml.Node, keyPath string) (*yaml.Node, error) {
 	parts := strings.Split(keyPath, ".")
 	current := node

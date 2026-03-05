@@ -18,6 +18,8 @@ type Config struct {
 	Mode           string
 	Keys           []string
 	Values         []string
+	Value          string
+	Marker         string
 	ImageName      string
 	ImageTag       string
 	CreatePR       bool
@@ -80,25 +82,39 @@ func Parse() (*Config, error) {
 	}
 
 	// Validate mode
-	if cfg.Mode != "key" && cfg.Mode != "image" {
-		return nil, fmt.Errorf("invalid mode '%s'. Must be 'key' or 'image'", cfg.Mode)
+	if cfg.Mode != "key" && cfg.Mode != "image" && cfg.Mode != "marker" {
+		return nil, fmt.Errorf("invalid mode '%s'. Must be 'key', 'image', or 'marker'", cfg.Mode)
 	}
 
+	// Parse shared value input
+	cfg.Value = getEnv("VALUE", "")
+
 	// Parse mode-specific inputs
-	if cfg.Mode == "key" {
+	switch cfg.Mode {
+	case "key":
 		cfg.Keys = parseList(getEnv("KEYS", ""), "\n")
 		cfg.Values = parseList(getEnv("VALUES", ""), "\n")
 
 		if len(cfg.Keys) == 0 {
 			return nil, fmt.Errorf("'keys' input is required for mode=key")
 		}
+
+		// If singular value is set, expand it to all keys
+		if cfg.Value != "" && len(cfg.Values) == 0 {
+			cfg.Values = make([]string, len(cfg.Keys))
+			for i := range cfg.Values {
+				cfg.Values[i] = cfg.Value
+			}
+		}
+
 		if len(cfg.Values) == 0 {
-			return nil, fmt.Errorf("'values' input is required for mode=key")
+			return nil, fmt.Errorf("'values' or 'value' input is required for mode=key")
 		}
 		if len(cfg.Keys) != len(cfg.Values) {
 			return nil, fmt.Errorf("number of keys (%d) must match number of values (%d)", len(cfg.Keys), len(cfg.Values))
 		}
-	} else {
+
+	case "image":
 		cfg.ImageName = getEnv("IMAGE_NAME", "")
 		cfg.ImageTag = getEnv("IMAGE_TAG", "")
 
@@ -107,6 +123,13 @@ func Parse() (*Config, error) {
 		}
 		if cfg.ImageTag == "" {
 			return nil, fmt.Errorf("'image_tag' input is required for mode=image")
+		}
+
+	case "marker":
+		cfg.Marker = getEnv("MARKER", "x-yaml-update")
+
+		if cfg.Value == "" {
+			return nil, fmt.Errorf("'value' input is required for mode=marker")
 		}
 	}
 

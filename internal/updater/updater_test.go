@@ -381,6 +381,144 @@ initContainers:
 	}
 }
 
+func TestUpdateByMarker(t *testing.T) {
+	tests := []struct {
+		name   string
+		yaml   string
+		marker string
+		value  string
+		want   int
+		check  string // substring expected in output
+	}{
+		{
+			name: "basic marker match",
+			yaml: `api:
+  image_tag: v1.0.0 # x-yaml-update
+  name: my-api
+`,
+			marker: "x-yaml-update",
+			value:  "v2.0.0",
+			want:   1,
+			check:  "image_tag: v2.0.0",
+		},
+		{
+			name: "multiple markers",
+			yaml: `api:
+  image_tag: v1.0.0 # x-yaml-update
+  metadata:
+    labels:
+      version: v1.0.0 # x-yaml-update
+frontend:
+  image_tag: v1.0.0 # x-yaml-update
+`,
+			marker: "x-yaml-update",
+			value:  "v3.0.0",
+			want:   3,
+		},
+		{
+			name: "no marker no change",
+			yaml: `api:
+  image_tag: v1.0.0
+  name: my-api
+`,
+			marker: "x-yaml-update",
+			value:  "v2.0.0",
+			want:   0,
+		},
+		{
+			name: "custom marker",
+			yaml: `api:
+  image_tag: v1.0.0 # my-custom-marker
+  name: my-api # x-yaml-update
+`,
+			marker: "my-custom-marker",
+			value:  "v2.0.0",
+			want:   1,
+			check:  "image_tag: v2.0.0",
+		},
+		{
+			name: "marker with id suffix",
+			yaml: `api:
+  image_tag: v1.0.0 # x-yaml-update:image-tag
+  replicas: 3 # x-yaml-update:replicas
+`,
+			marker: "x-yaml-update",
+			value:  "v2.0.0",
+			want:   2,
+		},
+		{
+			name: "same value no change",
+			yaml: `api:
+  image_tag: v1.0.0 # x-yaml-update
+`,
+			marker: "x-yaml-update",
+			value:  "v1.0.0",
+			want:   0,
+		},
+		{
+			name: "preserves comments and blank lines",
+			yaml: `# Top comment
+api:
+  image_tag: v1.0.0 # x-yaml-update
+
+  name: my-api
+`,
+			marker: "x-yaml-update",
+			value:  "v2.0.0",
+			want:   1,
+			check:  "# Top comment",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			doc, err := LoadYAML([]byte(tt.yaml))
+			if err != nil {
+				t.Fatalf("LoadYAML error: %v", err)
+			}
+
+			changes := UpdateByMarker(doc, tt.marker, tt.value)
+			if len(changes) != tt.want {
+				t.Errorf("UpdateByMarker got %d changes, want %d", len(changes), tt.want)
+			}
+
+			if tt.check != "" {
+				result, _ := DumpYAML(doc)
+				if !strings.Contains(string(result), tt.check) {
+					t.Errorf("output missing %q, got:\n%s", tt.check, result)
+				}
+			}
+		})
+	}
+}
+
+func TestHasMarker(t *testing.T) {
+	tests := []struct {
+		comment string
+		marker  string
+		want    bool
+	}{
+		{"# x-yaml-update", "x-yaml-update", true},
+		{"#x-yaml-update", "x-yaml-update", true},
+		{"#  x-yaml-update", "x-yaml-update", true},
+		{"# x-yaml-update:image-tag", "x-yaml-update", true},
+		{"# x-yaml-update:replicas", "x-yaml-update", true},
+		{"# something-else", "x-yaml-update", false},
+		{"# x-yaml-updater", "x-yaml-update", false},
+		{"", "x-yaml-update", false},
+		{"# my-marker", "my-marker", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.comment, func(t *testing.T) {
+			got := hasMarker(tt.comment, tt.marker)
+			if got != tt.want {
+				t.Errorf("hasMarker(%q, %q) = %v, want %v", tt.comment, tt.marker, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestLoadFromFile(t *testing.T) {
 	// Create a temp file
 	dir := t.TempDir()
