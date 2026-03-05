@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/DND-IT/action-yaml-update/compare/v0.3.2...v0.3.3) (2026-03-04)
+
+
+### Features
+
+* force push deploy branches to always reflect HEAD + changes ([a2d8a42](https://github.com/DND-IT/action-yaml-update/commit/a2d8a42f7b1028a470fe37230a4c4d8f86dafd86))
+
 ## [0.3.2](https://github.com/DND-IT/action-yaml-update/compare/v0.3.1...v0.3.2) (2026-02-23)
 
 
