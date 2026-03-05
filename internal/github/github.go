@@ -6,7 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 
 	"github.com/google/go-github/v68/github"
 )
@@ -20,7 +22,10 @@ type PRData struct {
 
 // CreatePullRequest creates a new pull request.
 func CreatePullRequest(ctx context.Context, apiURL, token, owner, repo, title, body, head, base string) (*PRData, error) {
-	client := newClient(ctx, apiURL, token)
+	client, err := newClient(apiURL, token)
+	if err != nil {
+		return nil, err
+	}
 
 	pr, _, err := client.PullRequests.Create(ctx, owner, repo, &github.NewPullRequest{
 		Title: &title,
@@ -41,9 +46,12 @@ func CreatePullRequest(ctx context.Context, apiURL, token, owner, repo, title, b
 
 // AddLabels adds labels to a pull request.
 func AddLabels(ctx context.Context, apiURL, token, owner, repo string, prNumber int, labels []string) error {
-	client := newClient(ctx, apiURL, token)
+	client, err := newClient(apiURL, token)
+	if err != nil {
+		return err
+	}
 
-	_, _, err := client.Issues.AddLabelsToIssue(ctx, owner, repo, prNumber, labels)
+	_, _, err = client.Issues.AddLabelsToIssue(ctx, owner, repo, prNumber, labels)
 	if err != nil {
 		return fmt.Errorf("add labels: %w", err)
 	}
@@ -52,9 +60,12 @@ func AddLabels(ctx context.Context, apiURL, token, owner, repo string, prNumber 
 
 // RequestReviewers requests reviewers for a pull request.
 func RequestReviewers(ctx context.Context, apiURL, token, owner, repo string, prNumber int, reviewers []string) error {
-	client := newClient(ctx, apiURL, token)
+	client, err := newClient(apiURL, token)
+	if err != nil {
+		return err
+	}
 
-	_, _, err := client.PullRequests.RequestReviewers(ctx, owner, repo, prNumber, github.ReviewersRequest{
+	_, _, err = client.PullRequests.RequestReviewers(ctx, owner, repo, prNumber, github.ReviewersRequest{
 		Reviewers: reviewers,
 	})
 	if err != nil {
@@ -88,7 +99,11 @@ func EnableAutoMerge(ctx context.Context, graphqlURL, token, prNodeID, mergeMeth
 		"variables": variables,
 	}
 
-	body, _ := json.Marshal(payload)
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("marshal graphql request: %w", err)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "POST", graphqlURL, bytes.NewReader(body))
 	if err != nil {
 		return err
@@ -107,13 +122,38 @@ func EnableAutoMerge(ctx context.Context, graphqlURL, token, prNodeID, mergeMeth
 		return fmt.Errorf("graphql request failed with status %d", resp.StatusCode)
 	}
 
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("read graphql response: %w", err)
+	}
+
+	var result struct {
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return fmt.Errorf("decode graphql response: %w", err)
+	}
+	if len(result.Errors) > 0 {
+		msgs := make([]string, len(result.Errors))
+		for i, e := range result.Errors {
+			msgs[i] = e.Message
+		}
+		return fmt.Errorf("graphql errors: %s", strings.Join(msgs, "; "))
+	}
+
 	return nil
 }
 
-func newClient(ctx context.Context, apiURL, token string) *github.Client {
+func newClient(apiURL, token string) (*github.Client, error) {
 	client := github.NewClient(nil).WithAuthToken(token)
 	if apiURL != "" && apiURL != "https://api.github.com" {
-		client, _ = client.WithEnterpriseURLs(apiURL, apiURL)
+		var err error
+		client, err = client.WithEnterpriseURLs(apiURL, apiURL)
+		if err != nil {
+			return nil, fmt.Errorf("configure enterprise GitHub client: %w", err)
+		}
 	}
-	return client
+	return client, nil
 }
