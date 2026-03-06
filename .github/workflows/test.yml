@@ -44,11 +44,25 @@ jobs:
           go-version: "1.23"
 
       - name: run tests
-        run: go test -v -race -coverprofile=coverage.out ./...
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
-      - name: check coverage
+      - name: coverage report
+        run: go tool cover -func=coverage.out
+
+      - name: coverage summary
         run: |
-          go tool cover -func=coverage.out | tail -1
+          TOTAL=$(go tool cover -func=coverage.out | grep total | awk '{print $3}')
+          echo "### Test Coverage: ${TOTAL}" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          go tool cover -func=coverage.out >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.out
 
   integration:
     runs-on: ubuntu-latest
