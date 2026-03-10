@@ -20,6 +20,36 @@ type PRData struct {
 	NodeID  string
 }
 
+// FindPullRequest finds an open pull request for the given head branch.
+// Returns nil if no open PR exists.
+func FindPullRequest(ctx context.Context, apiURL, token, owner, repo, head string) (*PRData, error) {
+	client, err := newClient(apiURL, token)
+	if err != nil {
+		return nil, err
+	}
+
+	prs, _, err := client.PullRequests.List(ctx, owner, repo, &github.PullRequestListOptions{
+		Head:  owner + ":" + head,
+		State: "open",
+		ListOptions: github.ListOptions{
+			PerPage: 1,
+		},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list pull requests: %w", err)
+	}
+
+	if len(prs) == 0 {
+		return nil, nil
+	}
+
+	return &PRData{
+		Number:  prs[0].GetNumber(),
+		HTMLURL: prs[0].GetHTMLURL(),
+		NodeID:  prs[0].GetNodeID(),
+	}, nil
+}
+
 // CreatePullRequest creates a new pull request.
 func CreatePullRequest(ctx context.Context, apiURL, token, owner, repo, title, body, head, base string) (*PRData, error) {
 	client, err := newClient(apiURL, token)
@@ -35,6 +65,28 @@ func CreatePullRequest(ctx context.Context, apiURL, token, owner, repo, title, b
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create pull request: %w", err)
+	}
+
+	return &PRData{
+		Number:  pr.GetNumber(),
+		HTMLURL: pr.GetHTMLURL(),
+		NodeID:  pr.GetNodeID(),
+	}, nil
+}
+
+// UpdatePullRequest updates the title and body of an existing pull request.
+func UpdatePullRequest(ctx context.Context, apiURL, token, owner, repo string, number int, title, body string) (*PRData, error) {
+	client, err := newClient(apiURL, token)
+	if err != nil {
+		return nil, err
+	}
+
+	pr, _, err := client.PullRequests.Edit(ctx, owner, repo, number, &github.PullRequest{
+		Title: &title,
+		Body:  &body,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("update pull request: %w", err)
 	}
 
 	return &PRData{

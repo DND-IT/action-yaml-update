@@ -198,15 +198,32 @@ func run() error {
 			prBody = "## Changes\n\n" + strings.Join(lines, "\n")
 		}
 
-		prData, err := github.CreatePullRequest(ctx, cfg.GithubAPIURL, cfg.Token, owner, repo, cfg.PRTitle, prBody, commitBranch, targetBranch)
+		// Check for an existing open PR for this branch
+		prData, err := github.FindPullRequest(ctx, cfg.GithubAPIURL, cfg.Token, owner, repo, commitBranch)
 		if err != nil {
-			outputs.LogEndGroup()
-			return fmt.Errorf("create pull request: %w", err)
+			outputs.LogWarning(fmt.Sprintf("Failed to check for existing PR: %v", err))
+		}
+
+		if prData != nil {
+			// Update existing PR
+			prData, err = github.UpdatePullRequest(ctx, cfg.GithubAPIURL, cfg.Token, owner, repo, prData.Number, cfg.PRTitle, prBody)
+			if err != nil {
+				outputs.LogEndGroup()
+				return fmt.Errorf("update pull request: %w", err)
+			}
+			outputs.LogInfo(fmt.Sprintf("Updated PR #%d: %s", prData.Number, prData.HTMLURL))
+		} else {
+			// Create new PR
+			prData, err = github.CreatePullRequest(ctx, cfg.GithubAPIURL, cfg.Token, owner, repo, cfg.PRTitle, prBody, commitBranch, targetBranch)
+			if err != nil {
+				outputs.LogEndGroup()
+				return fmt.Errorf("create pull request: %w", err)
+			}
+			outputs.LogInfo(fmt.Sprintf("Created PR #%d: %s", prData.Number, prData.HTMLURL))
 		}
 
 		outputs.SetOutput("pr_number", fmt.Sprintf("%d", prData.Number))
 		outputs.SetOutput("pr_url", prData.HTMLURL)
-		outputs.LogInfo(fmt.Sprintf("Created PR #%d: %s", prData.Number, prData.HTMLURL))
 
 		if len(cfg.PRLabels) > 0 {
 			if err := github.AddLabels(ctx, cfg.GithubAPIURL, cfg.Token, owner, repo, prData.Number, cfg.PRLabels); err != nil {
