@@ -71,6 +71,10 @@ func CommitAndPush(files []string, message, branch string) (string, error) {
 		return "", err
 	}
 
+	// Fetch the remote branch so --force-with-lease has a valid reference.
+	// Ignore errors: the branch may not exist on the remote yet.
+	_ = run("git", "fetch", "origin", branch)
+
 	if err := run("git", "push", "--force-with-lease", "-u", "origin", branch); err != nil {
 		return "", fmt.Errorf("push failed: %w", err)
 	}
