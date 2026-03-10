@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.5](https://github.com/DND-IT/action-yaml-update/compare/v0.3.4...v0.3.5) (2026-03-10)
+
+
+### Bug Fixes
+
+* fetch remote branch before force-with-lease push to prevent stale ref rejection ([1eda453](https://github.com/DND-IT/action-yaml-update/commit/1eda4532dc1c22bc63fbc33bdccc61eaaca6f645))
+
 ## [0.3.4](https://github.com/DND-IT/action-yaml-update/compare/v0.3.3...v0.3.4) (2026-03-05)
 
 
