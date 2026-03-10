@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.6](https://github.com/DND-IT/action-yaml-update/compare/v0.3.5...v0.3.6) (2026-03-10)
+
+
+### Bug Fixes
+
+* update existing PR instead of failing when branch already has an open PR ([09972de](https://github.com/DND-IT/action-yaml-update/commit/09972de6280d687c720066e96a1d00e6c6459fd3))
+
 ## [0.3.5](https://github.com/DND-IT/action-yaml-update/compare/v0.3.4...v0.3.5) (2026-03-10)
 
 
