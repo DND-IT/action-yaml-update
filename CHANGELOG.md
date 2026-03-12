@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.7](https://github.com/DND-IT/action-yaml-update/compare/v0.3.6...v0.3.7) (2026-03-12)
+
+
+### Features
+
+* add 429 retry with exponential backoff and PR coverage reporting ([#18](https://github.com/DND-IT/action-yaml-update/issues/18)) ([08b0a57](https://github.com/DND-IT/action-yaml-update/commit/08b0a577378296104faf10773e20cdc82f42e148))
+
 ## [0.3.6](https://github.com/DND-IT/action-yaml-update/compare/v0.3.5...v0.3.6) (2026-03-10)
 
 
