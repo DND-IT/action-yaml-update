@@ -7,11 +7,110 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/go-github/v68/github"
 )
+
+const maxRetries = 3
+
+// retryTransport wraps an http.RoundTripper and retries on 429 responses
+// with exponential backoff.
+type retryTransport struct {
+	base http.RoundTripper
+}
+
+func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	base := t.base
+	if base == nil {
+		base = http.DefaultTransport
+	}
+
+	// Buffer the body so we can replay it on retries
+	var bodyBytes []byte
+	if req.Body != nil {
+		var err error
+		bodyBytes, err = io.ReadAll(req.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read request body for retry: %w", err)
+		}
+		req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	}
+
+	for attempt := range maxRetries {
+		if attempt > 0 && bodyBytes != nil {
+			req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		}
+
+		resp, err := base.RoundTrip(req)
+		if err != nil {
+			return nil, err
+		}
+
+		if resp.StatusCode != http.StatusTooManyRequests {
+			return resp, nil
+		}
+
+		// Last attempt — return the 429 as-is
+		if attempt == maxRetries-1 {
+			return resp, nil
+		}
+
+		// Log rate limit details from response headers
+		remaining := resp.Header.Get("X-RateLimit-Remaining")
+		limit := resp.Header.Get("X-RateLimit-Limit")
+		resetHeader := resp.Header.Get("X-RateLimit-Reset")
+
+		var resetTime time.Time
+		if resetHeader != "" {
+			if resetUnix, parseErr := strconv.ParseInt(resetHeader, 10, 64); parseErr == nil {
+				resetTime = time.Unix(resetUnix, 0)
+			}
+		}
+
+		// Determine backoff: use Retry-After header if present, else exponential
+		wait := time.Duration(math.Pow(2, float64(attempt+1))) * time.Second
+		if ra := resp.Header.Get("Retry-After"); ra != "" {
+			if secs, parseErr := strconv.Atoi(ra); parseErr == nil {
+				wait = time.Duration(secs) * time.Second
+			}
+		}
+
+		// Calculate total remaining retry time (sum of this wait + future waits)
+		totalWait := wait
+		for future := attempt + 2; future < maxRetries; future++ {
+			totalWait += time.Duration(math.Pow(2, float64(future))) * time.Second
+		}
+
+		// If rate limit resets after our total retry budget, fail immediately
+		if !resetTime.IsZero() && time.Until(resetTime) > totalWait {
+			_ = resp.Body.Close()
+			return nil, fmt.Errorf("rate limited (429): limit %s, remaining %s, resets at %s (in %s) — exceeds retry budget, failing immediately",
+				limit, remaining, resetTime.Format(time.RFC3339), time.Until(resetTime).Truncate(time.Second))
+		}
+
+		_ = resp.Body.Close()
+
+		resetInfo := ""
+		if !resetTime.IsZero() {
+			resetInfo = fmt.Sprintf(", resets in %s", time.Until(resetTime).Truncate(time.Second))
+		}
+		fmt.Printf("::warning::Rate limited (429): limit=%s, remaining=%s%s — retrying in %s (attempt %d/%d)\n",
+			limit, remaining, resetInfo, wait, attempt+1, maxRetries)
+
+		select {
+		case <-time.After(wait):
+		case <-req.Context().Done():
+			return nil, req.Context().Err()
+		}
+	}
+
+	return nil, fmt.Errorf("unexpected: retry loop exited without returning")
+}
 
 // PRData contains pull request information.
 type PRData struct {
@@ -164,7 +263,10 @@ func EnableAutoMerge(ctx context.Context, graphqlURL, token, prNodeID, mergeMeth
 	req.Header.Set("Authorization", "bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	httpClient := &http.Client{
+		Transport: &retryTransport{base: http.DefaultTransport},
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("graphql request: %w", err)
 	}
@@ -199,7 +301,10 @@ func EnableAutoMerge(ctx context.Context, graphqlURL, token, prNodeID, mergeMeth
 }
 
 func newClient(apiURL, token string) (*github.Client, error) {
-	client := github.NewClient(nil).WithAuthToken(token)
+	httpClient := &http.Client{
+		Transport: &retryTransport{base: http.DefaultTransport},
+	}
+	client := github.NewClient(httpClient).WithAuthToken(token)
 	if apiURL != "" && apiURL != "https://api.github.com" {
 		var err error
 		client, err = client.WithEnterpriseURLs(apiURL, apiURL)
