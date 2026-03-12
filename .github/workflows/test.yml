@@ -10,6 +10,7 @@ on:
 
 permissions:
   packages: write
+  pull-requests: write
 
 env:
   REGISTRY: ghcr.io
@@ -57,12 +58,50 @@ jobs:
           go tool cover -func=coverage.out >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
-      - name: upload coverage
+      - name: upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.out
+
+      - name: update PR with coverage
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out)
+          TOTAL=$(echo "$COVERAGE" | grep total | awk '{print $3}')
+
+          # Build coverage block
+          {
+            echo "## Test Coverage: ${TOTAL}"
+            echo "<details>"
+            echo "<summary>Coverage by function</summary>"
+            echo ""
+            echo '```'
+            echo "$COVERAGE"
+            echo '```'
+            echo ""
+            echo "</details>"
+          } > /tmp/coverage-block.md
+
+          COVERAGE_BLOCK=$(cat /tmp/coverage-block.md)
+
+          # Get current PR body
+          gh pr view "$PR_NUMBER" --json body -q .body > /tmp/pr-body.md
+
+          # Replace or append coverage section
+          if grep -q '<!-- coverage-start -->' /tmp/pr-body.md; then
+            perl -0777 -i -pe \
+              "s|<!-- coverage-start -->.*?<!-- coverage-end -->|<!-- coverage-start -->\n${COVERAGE_BLOCK}\n<!-- coverage-end -->|s" \
+              /tmp/pr-body.md
+          else
+            printf '\n<!-- coverage-start -->\n%s\n<!-- coverage-end -->\n' "$COVERAGE_BLOCK" >> /tmp/pr-body.md
+          fi
+
+          gh pr edit "$PR_NUMBER" --body-file /tmp/pr-body.md
 
   integration:
     runs-on: ubuntu-latest
