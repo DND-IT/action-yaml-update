@@ -106,7 +106,7 @@ outputs:
 
 runs:
   using: 'docker'
-  image: 'docker://ghcr.io/dnd-it/action-yaml-update:0.3.6' # x-release-please-version
+  image: 'docker://ghcr.io/dnd-it/action-yaml-update:0.3.7' # x-release-please-version
 
 branding:
   icon: 'edit'
