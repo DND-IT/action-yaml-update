@@ -95,7 +95,11 @@ func TestPrepareWorktree_ResetsToBaseFromDivergedRef(t *testing.T) {
 	if err := os.Chdir(work); err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(prev)
+	defer func() {
+		if err := os.Chdir(prev); err != nil {
+			t.Errorf("restore working directory: %v", err)
+		}
+	}()
 
 	if err := PrepareWorktree("yaml-update/pr", "main"); err != nil {
 		t.Fatalf("PrepareWorktree failed: %v", err)
