@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/go-github/v68/github"
+	"github.com/google/go-github/v88/github"
 )
 
 const maxRetries = 3
@@ -304,13 +304,18 @@ func newClient(apiURL, token string) (*github.Client, error) {
 	httpClient := &http.Client{
 		Transport: &retryTransport{base: http.DefaultTransport},
 	}
-	client := github.NewClient(httpClient).WithAuthToken(token)
+
+	opts := []github.ClientOptionsFunc{github.WithHTTPClient(httpClient)}
+	if token != "" {
+		opts = append(opts, github.WithAuthToken(token))
+	}
 	if apiURL != "" && apiURL != "https://api.github.com" {
-		var err error
-		client, err = client.WithEnterpriseURLs(apiURL, apiURL)
-		if err != nil {
-			return nil, fmt.Errorf("configure enterprise GitHub client: %w", err)
-		}
+		opts = append(opts, github.WithEnterpriseURLs(apiURL, apiURL))
+	}
+
+	client, err := github.NewClient(opts...)
+	if err != nil {
+		return nil, fmt.Errorf("configure GitHub client: %w", err)
 	}
 	return client, nil
 }

@@ -38,6 +38,50 @@ func run() error {
 		outputs.LogInfo("Dry run mode enabled — no changes will be persisted")
 	}
 
+	// Parse repository owner/name up-front (pure string parsing).
+	var owner, repo string
+	if cfg.GithubRepo != "" {
+		parts := strings.SplitN(cfg.GithubRepo, "/", 2)
+		if len(parts) == 2 {
+			owner, repo = parts[0], parts[1]
+		}
+	}
+
+	// For real runs, base the working tree on origin/<target> BEFORE editing, so
+	// edits — and the resulting commit/PR — are relative to the PR base rather
+	// than whatever ref the caller checked out. This makes hotfix releases work:
+	// the release event checks out a tag that has diverged from the default
+	// branch, and switching to origin/<target> after editing would otherwise
+	// abort with "local changes would be overwritten by checkout". Dry runs skip
+	// all git operations and preview against the current checkout.
+	var targetBranch, commitBranch string
+	if !cfg.DryRun {
+		if err := gitops.Configure(cfg.GitUserName, cfg.GitUserEmail, cfg.Token, cfg.GithubRepo, cfg.GithubServerURL); err != nil {
+			return fmt.Errorf("git configure: %w", err)
+		}
+
+		targetBranch = cfg.TargetBranch
+		if targetBranch == "" {
+			targetBranch = gitops.GetDefaultBranch()
+		}
+
+		commitBranch = targetBranch
+		if cfg.CreatePR {
+			commitBranch = cfg.PRBranch
+			if commitBranch == "" {
+				commitBranch = generateBranchName(cfg)
+			}
+		}
+
+		outputs.LogGroup("Prepare worktree")
+		if err := gitops.PrepareWorktree(commitBranch, targetBranch); err != nil {
+			outputs.LogEndGroup()
+			return fmt.Errorf("prepare worktree: %w", err)
+		}
+		outputs.LogInfo(fmt.Sprintf("Based %q on origin/%s", commitBranch, targetBranch))
+		outputs.LogEndGroup()
+	}
+
 	// Process each file
 	var allChanges []updater.Change
 	var changedFiles []string
@@ -140,41 +184,8 @@ func run() error {
 		return nil
 	}
 
-	// Git operations
+	// Git operations (the worktree was prepared on origin/<target> above)
 	outputs.LogGroup("Git operations")
-
-	var owner, repo string
-	if cfg.GithubRepo != "" {
-		parts := strings.SplitN(cfg.GithubRepo, "/", 2)
-		if len(parts) == 2 {
-			owner, repo = parts[0], parts[1]
-		}
-	}
-
-	if err := gitops.Configure(cfg.GitUserName, cfg.GitUserEmail, cfg.Token, cfg.GithubRepo, cfg.GithubServerURL); err != nil {
-		outputs.LogEndGroup()
-		return fmt.Errorf("git configure: %w", err)
-	}
-
-	targetBranch := cfg.TargetBranch
-	if targetBranch == "" {
-		targetBranch = gitops.GetDefaultBranch()
-	}
-
-	var commitBranch string
-	if cfg.CreatePR {
-		prBranch := cfg.PRBranch
-		if prBranch == "" {
-			prBranch = generateBranchName(cfg)
-		}
-		if err := gitops.CreateBranch(prBranch, targetBranch); err != nil {
-			outputs.LogEndGroup()
-			return fmt.Errorf("create branch: %w", err)
-		}
-		commitBranch = prBranch
-	} else {
-		commitBranch = targetBranch
-	}
 
 	sha, err := gitops.CommitAndPush(changedFiles, cfg.CommitMessage, commitBranch)
 	if err != nil {

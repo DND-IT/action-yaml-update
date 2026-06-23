@@ -168,7 +168,7 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: update image tag
         id: update
@@ -220,6 +220,14 @@ jobs:
 | `git_user_email` | no | `41898282+github-actions[bot]@...` | Git committer email |
 
 > **Note:** At least one of `files` or `files_from` must be provided.
+
+> **Branching:** When committing or creating a PR, the action always bases the
+> result on `origin/<target_branch>` (the repository default branch unless
+> `target_branch` is set), independent of whichever ref the job checked out. So
+> it works correctly even when the workflow has checked out a diverged ref —
+> e.g. a release published from a hotfix tag — without an extra `ref:` on
+> `actions/checkout`. (`dry_run` performs no git operations and previews against
+> the currently checked-out files.)
 
 ## outputs
 
