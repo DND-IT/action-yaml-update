@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.8](https://github.com/DND-IT/action-yaml-update/compare/v0.3.7...v0.3.8) (2026-06-23)
+
+
+### Bug Fixes
+
+* base worktree on origin/&lt;target&gt; before editing ([3b92505](https://github.com/DND-IT/action-yaml-update/commit/3b925054306d8ff042f5b7198500696b4f2a0003))
+* base worktree on origin/&lt;target&gt; before editing (hotfix releases) ([8e22432](https://github.com/DND-IT/action-yaml-update/commit/8e22432a4f48f1dae002608b119531f6fb693229))
+
 ## [0.3.7](https://github.com/DND-IT/action-yaml-update/compare/v0.3.6...v0.3.7) (2026-03-12)
 
 
