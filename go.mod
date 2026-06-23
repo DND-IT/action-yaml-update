@@ -1,6 +1,6 @@
 module github.com/dnd-it/action-yaml-update
 
-go 1.23
+go 1.26
 
 require (
 	github.com/google/go-github/v68 v68.0.0
