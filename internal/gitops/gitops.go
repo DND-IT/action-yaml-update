@@ -47,15 +47,22 @@ func GetDefaultBranch() string {
 	return strings.TrimPrefix(strings.TrimSpace(out), "refs/remotes/origin/")
 }
 
-// CreateBranch creates and checks out a new branch from a base.
-// It always starts fresh from origin/<base>, discarding any existing local branch.
-func CreateBranch(name, base string) error {
+// PrepareWorktree fetches origin/<base> and resets the working tree to a fresh
+// <branch> based on it.
+//
+// It must run BEFORE any YAML edits: at that point the working tree is clean, so
+// switching away from whatever ref the caller checked out (e.g. a release tag on
+// a diverged hotfix branch) never hits "local changes would be overwritten".
+// Editing afterwards then makes the changes — and the resulting commit/PR —
+// relative to origin/<base>, independent of the caller's checkout. When <branch>
+// equals <base>, this simply checks out the up-to-date base for a direct commit.
+func PrepareWorktree(branch, base string) error {
 	if err := run("git", "fetch", "origin", base); err != nil {
 		return err
 	}
-	// Delete local branch if it exists (ignore error if it doesn't)
-	_ = run("git", "branch", "-D", name)
-	return run("git", "checkout", "-b", name, "origin/"+base)
+	// -B creates or resets the branch to origin/<base>, discarding any stale
+	// local branch of the same name from a previous run.
+	return run("git", "checkout", "-B", branch, "origin/"+base)
 }
 
 // CommitAndPush stages files, commits, and force-pushes to origin.
