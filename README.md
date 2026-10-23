@@ -1,5 +1,10 @@
 # action-yaml-update
 
+> [!WARNING]
+> **This action is deprecated and superseded by [tamci](https://github.com/DND-IT/tamci).**
+> tamci is a unified Go CLI that consolidates DND-IT's GitHub Actions, including this one. Use tamci for new and existing workflows.
+> No further features or fixes should be expected in this repository.
+
 GitHub Action to automate updating YAML files with full format and comment preservation. Supports Helm values, Kustomize configs, and any YAML file.
 
 Built in Go using [`gopkg.in/yaml.v3`](https://pkg.go.dev/gopkg.in/yaml.v3) for round-trip YAML processing — comments, formatting, and quote styles are preserved.
